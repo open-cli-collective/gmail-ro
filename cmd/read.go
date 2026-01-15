@@ -51,7 +51,7 @@ Examples:
 		fmt.Printf("To: %s\n", msg.To)
 		fmt.Printf("Subject: %s\n", msg.Subject)
 		fmt.Printf("Date: %s\n", msg.Date)
-		fmt.Println("\n--- Body ---\n")
+		fmt.Print("\n--- Body ---\n\n")
 		fmt.Println(msg.Body)
 
 		return nil
