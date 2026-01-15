@@ -1,0 +1,133 @@
+package gmail
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/option"
+)
+
+const (
+	configDirName   = "gmail-ro"
+	credentialsFile = "credentials.json"
+	tokenFile       = "token.json"
+)
+
+// Client wraps the Gmail API service
+type Client struct {
+	Service *gmail.Service
+	UserID  string
+}
+
+// NewClient creates a new Gmail client with OAuth2 authentication
+func NewClient(ctx context.Context) (*Client, error) {
+	configDir, err := getConfigDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config directory: %w", err)
+	}
+
+	credPath := filepath.Join(configDir, credentialsFile)
+	b, err := os.ReadFile(credPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read credentials file at %s: %w\n\nPlease download your OAuth credentials from Google Cloud Console and save them to %s", credPath, err, credPath)
+	}
+
+	// Only request read-only scope
+	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse credentials: %w", err)
+	}
+
+	client, err := getHTTPClient(ctx, config, configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return nil, fmt.Errorf("unable to create Gmail service: %w", err)
+	}
+
+	return &Client{
+		Service: srv,
+		UserID:  "me",
+	}, nil
+}
+
+func getConfigDir() (string, error) {
+	configHome := os.Getenv("XDG_CONFIG_HOME")
+	if configHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		configHome = filepath.Join(home, ".config")
+	}
+	configDir := filepath.Join(configHome, configDirName)
+
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return "", err
+	}
+
+	return configDir, nil
+}
+
+func getHTTPClient(ctx context.Context, config *oauth2.Config, configDir string) (*http.Client, error) {
+	tokPath := filepath.Join(configDir, tokenFile)
+	tok, err := tokenFromFile(tokPath)
+	if err != nil {
+		tok, err = getTokenFromWeb(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		if err := saveToken(tokPath, tok); err != nil {
+			return nil, err
+		}
+	}
+	return config.Client(ctx, tok), nil
+}
+
+func tokenFromFile(file string) (*oauth2.Token, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	tok := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(tok)
+	return tok, err
+}
+
+func getTokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser:\n\n%s\n\n", authURL)
+	fmt.Print("Enter the authorization code: ")
+
+	var authCode string
+	if _, err := fmt.Scan(&authCode); err != nil {
+		return nil, fmt.Errorf("unable to read authorization code: %w", err)
+	}
+
+	tok, err := config.Exchange(ctx, authCode)
+	if err != nil {
+		return nil, fmt.Errorf("unable to exchange authorization code: %w", err)
+	}
+	return tok, nil
+}
+
+func saveToken(path string, token *oauth2.Token) error {
+	fmt.Printf("Saving credential file to: %s\n", path)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("unable to save token: %w", err)
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(token)
+}

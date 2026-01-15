@@ -1,0 +1,21 @@
+# Binaries
+gmail-ro
+*.exe
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+
+# Credentials (NEVER commit these)
+credentials.json
+token.json
