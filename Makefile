@@ -1,0 +1,53 @@
+.PHONY: build clean test test-cover test-short lint install release snapshot run fmt verify deps
+
+BINARY_NAME=gmail-ro
+VERSION?=dev
+COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+LDFLAGS=-ldflags "-X github.com/piekstra/gmail-ro/cmd.Version=$(VERSION) \
+	-X github.com/piekstra/gmail-ro/cmd.Commit=$(COMMIT) \
+	-X github.com/piekstra/gmail-ro/cmd.BuildDate=$(BUILD_DATE)"
+
+build:
+	go build $(LDFLAGS) -o $(BINARY_NAME) .
+
+clean:
+	rm -f $(BINARY_NAME)
+	rm -rf dist/
+	rm -f coverage.out coverage.html
+
+test:
+	go test -race ./...
+
+test-cover:
+	go test -race -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+
+test-short:
+	go test -short ./...
+
+lint:
+	golangci-lint run
+
+install: build
+	mv $(BINARY_NAME) /usr/local/bin/
+
+release:
+	goreleaser release --clean
+
+snapshot:
+	goreleaser release --snapshot --clean
+
+run: build
+	./$(BINARY_NAME)
+
+fmt:
+	go fmt ./...
+
+verify: fmt lint test
+	@echo "All checks passed!"
+
+deps:
+	go mod tidy
+	go mod download

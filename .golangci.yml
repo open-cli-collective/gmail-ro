@@ -1,0 +1,32 @@
+version: "2"
+
+run:
+  go: "1.21"
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck      # Unchecked errors
+    - govet         # Go vet checks
+    - staticcheck   # Static analysis
+    - unused        # Unused code
+    - misspell      # Spelling mistakes
+  settings:
+    errcheck:
+      exclude-functions:
+        - io.Closer.Close
+        - (*os.File).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*github.com/spf13/cobra.Command).MarkFlagRequired
+    misspell:
+      locale: US
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+      - linters:
+          - errcheck
+        source: "defer.*\\.Close\\(\\)"
