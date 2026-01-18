@@ -3,7 +3,7 @@
   <metadata>
     <id>gmail-ro</id>
     <version>0.0.0</version>
-    <title>gmail-ro</title>
+    <title>Gmail Read-Only CLI</title>
     <authors>Caleb Piekstra</authors>
     <owners>open-cli-collective</owners>
     <licenseUrl>https://github.com/open-cli-collective/gmail-ro/blob/main/LICENSE</licenseUrl>
