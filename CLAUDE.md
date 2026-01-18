@@ -225,3 +225,40 @@ Key dependencies:
 - **Read-only scope**: Cannot modify, send, or delete emails
 - **Local token storage**: OAuth tokens stored with 0600 permissions
 - **No credential exposure**: Credentials never logged or transmitted
+
+## Commit Conventions
+
+Use conventional commits:
+
+```
+type(scope): description
+
+feat(search): add date range filtering
+fix(thread): handle missing message bodies
+docs(readme): add installation instructions
+```
+
+| Prefix | Purpose | Triggers Release? |
+|--------|---------|-------------------|
+| `feat:` | New features | Yes |
+| `fix:` | Bug fixes | Yes |
+| `docs:` | Documentation only | No |
+| `test:` | Adding/updating tests | No |
+| `refactor:` | Code changes that don't fix bugs or add features | No |
+| `chore:` | Maintenance tasks | No |
+| `ci:` | CI/CD changes | No |
+
+## CI & Release Workflow
+
+Releases are automated with a dual-gate system to avoid unnecessary releases:
+
+**Gate 1 - Path filter:** Only triggers when Go code changes (`**.go`, `go.mod`, `go.sum`)
+**Gate 2 - Commit prefix:** Only `feat:` and `fix:` commits create releases
+
+This means:
+- `feat: add command` + Go files changed → release
+- `fix: handle edge case` + Go files changed → release
+- `docs:`, `ci:`, `test:`, `refactor:` → no release
+- Changes only to docs, packaging, workflows → no release
+
+**After merging a release-triggering PR:** The workflow creates a tag, which triggers GoReleaser to build binaries and publish to Homebrew. Chocolatey and Winget require manual workflow dispatch.
