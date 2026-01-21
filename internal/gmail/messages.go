@@ -33,8 +33,9 @@ type Attachment struct {
 	IsInline     bool   `json:"isInline"`
 }
 
-// SearchMessages searches for messages matching the query
-func (c *Client) SearchMessages(query string, maxResults int64) ([]*Message, error) {
+// SearchMessages searches for messages matching the query.
+// Returns messages, the count of messages that failed to fetch, and any error.
+func (c *Client) SearchMessages(query string, maxResults int64) ([]*Message, int, error) {
 	call := c.Service.Users.Messages.List(c.UserID).Q(query)
 	if maxResults > 0 {
 		call = call.MaxResults(maxResults)
@@ -42,19 +43,21 @@ func (c *Client) SearchMessages(query string, maxResults int64) ([]*Message, err
 
 	resp, err := call.Do()
 	if err != nil {
-		return nil, fmt.Errorf("failed to search messages: %w", err)
+		return nil, 0, fmt.Errorf("failed to search messages: %w", err)
 	}
 
 	var messages []*Message
+	var skipped int
 	for _, msg := range resp.Messages {
 		m, err := c.GetMessage(msg.Id, false)
 		if err != nil {
-			continue // Skip messages that fail to fetch
+			skipped++
+			continue
 		}
 		messages = append(messages, m)
 	}
 
-	return messages, nil
+	return messages, skipped, nil
 }
 
 // GetMessage retrieves a single message by ID
