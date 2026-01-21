@@ -122,6 +122,14 @@ func parseMessage(msg *gmail.Message, includeBody bool, resolver LabelResolver) 
 		Snippet:  msg.Snippet,
 	}
 
+	// Extract labels and categories (doesn't need Payload)
+	m.Labels, m.Categories = extractLabelsAndCategories(msg.LabelIds, resolver)
+
+	// Early return if Payload is nil
+	if msg.Payload == nil {
+		return m
+	}
+
 	// Extract headers
 	for _, header := range msg.Payload.Headers {
 		switch strings.ToLower(header.Name) {
@@ -136,13 +144,10 @@ func parseMessage(msg *gmail.Message, includeBody bool, resolver LabelResolver) 
 		}
 	}
 
-	if includeBody && msg.Payload != nil {
+	if includeBody {
 		m.Body = extractBody(msg.Payload)
 		m.Attachments = extractAttachments(msg.Payload, "")
 	}
-
-	// Extract labels and categories
-	m.Labels, m.Categories = extractLabelsAndCategories(msg.LabelIds, resolver)
 
 	return m
 }
