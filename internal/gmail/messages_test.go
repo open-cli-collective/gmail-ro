@@ -24,7 +24,7 @@ func TestParseMessage(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 
 		assert.Equal(t, "msg123", result.ID)
 		assert.Equal(t, "thread456", result.ThreadId)
@@ -44,7 +44,7 @@ func TestParseMessage(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 
 		assert.Equal(t, "msg123", result.ID)
 		assert.Equal(t, "thread789", result.ThreadId)
@@ -62,7 +62,7 @@ func TestParseMessage(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 
 		assert.Equal(t, "Upper Case", result.Subject)
 		assert.Equal(t, "lower@example.com", result.From)
@@ -77,7 +77,7 @@ func TestParseMessage(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 
 		assert.Equal(t, "msg123", result.ID)
 		assert.Empty(t, result.Subject)
@@ -243,7 +243,7 @@ func TestParseMessageWithBody(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, true)
+		result := parseMessage(msg, true, nil)
 		assert.Equal(t, bodyText, result.Body)
 	})
 
@@ -264,7 +264,7 @@ func TestParseMessageWithBody(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 		assert.Empty(t, result.Body)
 	})
 }
@@ -497,7 +497,7 @@ func TestParseMessageWithAttachments(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, true)
+		result := parseMessage(msg, true, nil)
 		assert.Equal(t, "body text", result.Body)
 		assert.Len(t, result.Attachments, 1)
 		assert.Equal(t, "attachment.pdf", result.Attachments[0].Filename)
@@ -518,7 +518,120 @@ func TestParseMessageWithAttachments(t *testing.T) {
 			},
 		}
 
-		result := parseMessage(msg, false)
+		result := parseMessage(msg, false, nil)
 		assert.Empty(t, result.Attachments)
+	})
+}
+
+func TestExtractLabelsAndCategories(t *testing.T) {
+	t.Run("separates user labels from categories", func(t *testing.T) {
+		labelIds := []string{"Label_1", "CATEGORY_UPDATES", "Label_2", "CATEGORY_SOCIAL"}
+		resolver := func(id string) string { return id }
+
+		labels, categories := extractLabelsAndCategories(labelIds, resolver)
+
+		assert.ElementsMatch(t, []string{"Label_1", "Label_2"}, labels)
+		assert.ElementsMatch(t, []string{"updates", "social"}, categories)
+	})
+
+	t.Run("filters out system labels", func(t *testing.T) {
+		labelIds := []string{"INBOX", "Label_1", "UNREAD", "STARRED", "IMPORTANT"}
+		resolver := func(id string) string { return id }
+
+		labels, categories := extractLabelsAndCategories(labelIds, resolver)
+
+		assert.Equal(t, []string{"Label_1"}, labels)
+		assert.Empty(t, categories)
+	})
+
+	t.Run("filters out CATEGORY_PERSONAL", func(t *testing.T) {
+		labelIds := []string{"CATEGORY_PERSONAL", "CATEGORY_UPDATES"}
+		resolver := func(id string) string { return id }
+
+		labels, categories := extractLabelsAndCategories(labelIds, resolver)
+
+		assert.Empty(t, labels)
+		assert.Equal(t, []string{"updates"}, categories)
+	})
+
+	t.Run("uses resolver to translate label IDs", func(t *testing.T) {
+		labelIds := []string{"Label_123", "Label_456"}
+		resolver := func(id string) string {
+			if id == "Label_123" {
+				return "Work"
+			}
+			if id == "Label_456" {
+				return "Personal"
+			}
+			return id
+		}
+
+		labels, categories := extractLabelsAndCategories(labelIds, resolver)
+
+		assert.ElementsMatch(t, []string{"Work", "Personal"}, labels)
+		assert.Empty(t, categories)
+	})
+
+	t.Run("handles nil resolver", func(t *testing.T) {
+		labelIds := []string{"Label_1", "CATEGORY_SOCIAL"}
+
+		labels, categories := extractLabelsAndCategories(labelIds, nil)
+
+		assert.Equal(t, []string{"Label_1"}, labels)
+		assert.Equal(t, []string{"social"}, categories)
+	})
+
+	t.Run("handles empty label IDs", func(t *testing.T) {
+		labels, categories := extractLabelsAndCategories([]string{}, nil)
+
+		assert.Empty(t, labels)
+		assert.Empty(t, categories)
+	})
+
+	t.Run("handles nil label IDs", func(t *testing.T) {
+		labels, categories := extractLabelsAndCategories(nil, nil)
+
+		assert.Empty(t, labels)
+		assert.Empty(t, categories)
+	})
+}
+
+func TestParseMessageWithLabels(t *testing.T) {
+	t.Run("extracts labels and categories from message", func(t *testing.T) {
+		msg := &gmail.Message{
+			Id: "msg123",
+			Payload: &gmail.MessagePart{
+				Headers: []*gmail.MessagePartHeader{
+					{Name: "Subject", Value: "Test"},
+				},
+			},
+			LabelIds: []string{"Label_Work", "INBOX", "CATEGORY_UPDATES", "UNREAD"},
+		}
+		resolver := func(id string) string {
+			if id == "Label_Work" {
+				return "Work"
+			}
+			return id
+		}
+
+		result := parseMessage(msg, false, resolver)
+
+		assert.Equal(t, []string{"Work"}, result.Labels)
+		assert.Equal(t, []string{"updates"}, result.Categories)
+	})
+
+	t.Run("handles message with no labels", func(t *testing.T) {
+		msg := &gmail.Message{
+			Id: "msg123",
+			Payload: &gmail.MessagePart{
+				Headers: []*gmail.MessagePartHeader{},
+			},
+			LabelIds: []string{},
+		}
+
+		result := parseMessage(msg, false, nil)
+
+		assert.Empty(t, result.Labels)
+		assert.Empty(t, result.Categories)
 	})
 }

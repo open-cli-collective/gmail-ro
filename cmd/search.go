@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/piekstra/gmail-ro/internal/gmail"
 	"github.com/spf13/cobra"
@@ -63,6 +64,12 @@ For more query operators, see: https://support.google.com/mail/answer/7190`,
 			fmt.Printf("From: %s\n", msg.From)
 			fmt.Printf("Subject: %s\n", msg.Subject)
 			fmt.Printf("Date: %s\n", msg.Date)
+			if len(msg.Labels) > 0 {
+				fmt.Printf("Labels: %s\n", strings.Join(msg.Labels, ", "))
+			}
+			if len(msg.Categories) > 0 {
+				fmt.Printf("Categories: %s\n", strings.Join(msg.Categories, ", "))
+			}
 			fmt.Printf("Snippet: %s\n", msg.Snippet)
 			fmt.Println("---")
 		}

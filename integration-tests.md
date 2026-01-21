@@ -107,6 +107,36 @@ gmail-ro search "is:inbox" --max 1  # Quick connectivity check
 
 ---
 
+## Labels Operations
+
+### List Labels
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| List all labels | `gmail-ro labels` | Shows NAME, TYPE, TOTAL, UNREAD columns |
+| Labels JSON output | `gmail-ro labels --json` | Valid JSON array with label objects |
+| Labels JSON has fields | `gmail-ro labels --json \| jq -e '.[0] \| has("id", "name", "type")'` | Returns true |
+
+### Label Display in Messages
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Search shows labels | `gmail-ro search "is:inbox" --max 1` | Output may include "Labels:" line if message has user labels |
+| Search shows categories | `gmail-ro search "category:updates" --max 1` | Output may include "Categories: updates" |
+| Search JSON has labels | `gmail-ro search "is:inbox" --max 1 --json \| jq '.[0] \| has("labels", "categories")'` | Returns true |
+| Read shows labels | `MSG_ID=$(gmail-ro search "is:inbox" --max 1 --json \| jq -r '.[0].id'); gmail-ro read "$MSG_ID"` | Output may include "Labels:" and "Categories:" lines |
+
+### Label-Based Search
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Search by label | `gmail-ro search "label:inbox" --max 3` | Returns inbox messages |
+| Search by category | `gmail-ro search "category:updates" --max 3` | Returns updates category messages |
+| Exclude category | `gmail-ro search "is:inbox -category:promotions" --max 3` | Returns inbox excluding promotions |
+| Combined label search | `gmail-ro search "is:inbox -category:social -category:promotions" --max 3` | Inbox excluding social and promotions |
+
+---
+
 ## Attachment Operations
 
 ### Setup: Find Message with Attachments
@@ -172,18 +202,20 @@ ATTACHMENT_MSG_ID=$(gmail-ro search "has:attachment" --max 1 --json | jq -r '.[0
 
 | Command Type | Expected Fields |
 |--------------|-----------------|
-| Search | ID, ThreadId, From, Subject, Date, Snippet, separator (---) |
-| Read | ID, From, To, Subject, Date, "--- Body ---", body content |
-| Thread | "Thread contains N message(s)", per-message: "=== Message X of Y ===", ID, From, To, Subject, Date, body |
+| Search | ID, ThreadId, From, Subject, Date, Labels (if any), Categories (if any), Snippet, separator (---) |
+| Read | ID, From, To, Subject, Date, Labels (if any), Categories (if any), "--- Body ---", body content |
+| Thread | "Thread contains N message(s)", per-message: "=== Message X of Y ===", ID, From, To, Subject, Date, Labels, Categories, body |
+| Labels | NAME, TYPE, TOTAL, UNREAD columns |
 | Attachments List | "Found N attachment(s):", numbered list with filename, Type, Size |
 
 ### JSON Schema Validation
 
 | Type | Required Fields |
 |------|-----------------|
-| Search result | id, threadId, from, subject, date, snippet |
-| Message | id, threadId, from, to, subject, date, body |
+| Search result | id, threadId, from, subject, date, snippet, labels, categories |
+| Message | id, threadId, from, to, subject, date, body, labels, categories |
 | Attachment | filename, mimeType, size, partId |
+| Label | id, name, type, messagesTotal, messagesUnread |
 
 ---
 
@@ -241,6 +273,13 @@ gmail-ro thread "$THREAD_ID" --json | jq -r '.[].body'
 - [ ] `gmail-ro read` by message ID
 - [ ] `gmail-ro thread` by thread ID
 - [ ] `gmail-ro thread` by message ID
+- [ ] `gmail-ro labels` (list all labels)
+
+### Labels
+- [ ] `gmail-ro labels` text output
+- [ ] `gmail-ro labels --json` JSON output
+- [ ] Search by label/category
+- [ ] Labels/categories in message output
 
 ### Attachments
 - [ ] `gmail-ro attachments list`

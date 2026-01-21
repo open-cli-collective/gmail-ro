@@ -22,8 +22,10 @@ const (
 
 // Client wraps the Gmail API service
 type Client struct {
-	Service *gmail.Service
-	UserID  string
+	Service      *gmail.Service
+	UserID       string
+	labels       map[string]*gmail.Label
+	labelsLoaded bool
 }
 
 // NewClient creates a new Gmail client with OAuth2 authentication
@@ -130,4 +132,44 @@ func saveToken(path string, token *oauth2.Token) error {
 	}
 	defer func() { _ = f.Close() }()
 	return json.NewEncoder(f).Encode(token)
+}
+
+// FetchLabels retrieves and caches all labels from the Gmail account
+func (c *Client) FetchLabels() error {
+	if c.labelsLoaded {
+		return nil
+	}
+
+	resp, err := c.Service.Users.Labels.List(c.UserID).Do()
+	if err != nil {
+		return fmt.Errorf("failed to fetch labels: %w", err)
+	}
+
+	c.labels = make(map[string]*gmail.Label)
+	for _, label := range resp.Labels {
+		c.labels[label.Id] = label
+	}
+	c.labelsLoaded = true
+
+	return nil
+}
+
+// GetLabelName resolves a label ID to its display name
+func (c *Client) GetLabelName(labelID string) string {
+	if label, ok := c.labels[labelID]; ok {
+		return label.Name
+	}
+	return labelID
+}
+
+// GetLabels returns all cached labels
+func (c *Client) GetLabels() []*gmail.Label {
+	if !c.labelsLoaded {
+		return nil
+	}
+	labels := make([]*gmail.Label, 0, len(c.labels))
+	for _, label := range c.labels {
+		labels = append(labels, label)
+	}
+	return labels
 }
