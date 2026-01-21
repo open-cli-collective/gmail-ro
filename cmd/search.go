@@ -36,7 +36,7 @@ For more query operators, see: https://support.google.com/mail/answer/7190`,
 			return err
 		}
 
-		messages, err := client.SearchMessages(args[0], searchMaxResults)
+		messages, skipped, err := client.SearchMessages(args[0], searchMaxResults)
 		if err != nil {
 			return err
 		}
@@ -56,6 +56,10 @@ For more query operators, see: https://support.google.com/mail/answer/7190`,
 				IncludeSnippet:  true,
 			})
 			fmt.Println("---")
+		}
+
+		if skipped > 0 {
+			fmt.Printf("Note: %d message(s) could not be retrieved.\n", skipped)
 		}
 
 		return nil
