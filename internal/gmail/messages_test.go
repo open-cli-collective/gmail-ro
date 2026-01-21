@@ -50,6 +50,25 @@ func TestParseMessage(t *testing.T) {
 		assert.Equal(t, "thread789", result.ThreadID)
 	})
 
+	t.Run("handles nil payload", func(t *testing.T) {
+		msg := &gmail.Message{
+			Id:       "msg123",
+			ThreadId: "thread456",
+			Snippet:  "Preview text",
+			Payload:  nil,
+		}
+
+		result := parseMessage(msg, true, nil)
+
+		// Should not panic, basic fields populated
+		assert.Equal(t, "msg123", result.ID)
+		assert.Equal(t, "thread456", result.ThreadID)
+		assert.Equal(t, "Preview text", result.Snippet)
+		// Headers won't be extracted
+		assert.Empty(t, result.Subject)
+		assert.Empty(t, result.Body)
+	})
+
 	t.Run("handles case-insensitive headers", func(t *testing.T) {
 		msg := &gmail.Message{
 			Id: "msg123",
