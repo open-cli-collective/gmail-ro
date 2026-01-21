@@ -44,6 +44,7 @@ gmail-ro/
 │   ├── search.go               # Search messages command
 │   ├── read.go                 # Read single message command
 │   ├── thread.go               # Read conversation thread command
+│   ├── labels.go               # List labels command
 │   ├── attachments.go          # Attachments parent command
 │   ├── attachments_list.go     # List attachments subcommand
 │   └── attachments_download.go # Download attachments subcommand
@@ -184,6 +185,10 @@ The search command accepts standard Gmail search syntax:
 | `has:` | `has:attachment` | Has attachment |
 | `after:` | `after:2024/01/01` | After date |
 | `before:` | `before:2024/02/01` | Before date |
+| `label:` | `label:Work` | Messages with label |
+| `-label:` | `-label:Archive` | Messages without label |
+| `category:` | `category:updates` | Messages in category |
+| `-category:` | `-category:social` | Messages not in category |
 
 ### Message Format
 
@@ -221,6 +226,25 @@ Zip extraction includes security safeguards:
 - 100MB per-file limit, 500MB total limit
 - Path traversal prevention
 - Max 1000 files, 10 levels depth
+
+### Labels and Categories
+
+Labels and categories are displayed in message output:
+- **Labels**: User-created labels (e.g., "Work", "Receipts")
+- **Categories**: Gmail-controlled categories (e.g., "updates", "social", "promotions")
+
+```bash
+# List all labels
+gmail-ro labels
+gmail-ro labels --json
+
+# Filter by label/category in search
+gmail-ro search "label:Work"
+gmail-ro search "category:updates"
+gmail-ro search "is:inbox -category:promotions -category:social"
+```
+
+**Label caching**: Labels are fetched once per session and cached. The `Client` struct maintains a label map for efficient ID-to-name resolution.
 
 ## Common Issues
 

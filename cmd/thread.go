@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/piekstra/gmail-ro/internal/gmail"
 	"github.com/spf13/cobra"
@@ -62,6 +63,12 @@ Examples:
 			fmt.Printf("To: %s\n", msg.To)
 			fmt.Printf("Subject: %s\n", msg.Subject)
 			fmt.Printf("Date: %s\n", msg.Date)
+			if len(msg.Labels) > 0 {
+				fmt.Printf("Labels: %s\n", strings.Join(msg.Labels, ", "))
+			}
+			if len(msg.Categories) > 0 {
+				fmt.Printf("Categories: %s\n", strings.Join(msg.Categories, ", "))
+			}
 			fmt.Print("\n--- Body ---\n\n")
 			fmt.Println(msg.Body)
 			fmt.Println()

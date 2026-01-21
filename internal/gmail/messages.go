@@ -19,6 +19,8 @@ type Message struct {
 	Snippet     string        `json:"snippet"`
 	Body        string        `json:"body,omitempty"`
 	Attachments []*Attachment `json:"attachments,omitempty"`
+	Labels      []string      `json:"labels,omitempty"`
+	Categories  []string      `json:"categories,omitempty"`
 }
 
 // Attachment represents metadata about an email attachment
@@ -62,18 +64,28 @@ func (c *Client) GetMessage(messageID string, includeBody bool) (*Message, error
 		format = "full"
 	}
 
+	// Fetch labels for resolution
+	if err := c.FetchLabels(); err != nil {
+		return nil, err
+	}
+
 	msg, err := c.Service.Users.Messages.Get(c.UserID, messageID).Format(format).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get message: %w", err)
 	}
 
-	return parseMessage(msg, includeBody), nil
+	return parseMessage(msg, includeBody, c.GetLabelName), nil
 }
 
 // GetThread retrieves all messages in a thread.
 // The id parameter can be either a thread ID or a message ID.
 // If a message ID is provided, the thread ID is resolved automatically.
 func (c *Client) GetThread(id string) ([]*Message, error) {
+	// Fetch labels for resolution
+	if err := c.FetchLabels(); err != nil {
+		return nil, err
+	}
+
 	thread, err := c.Service.Users.Threads.Get(c.UserID, id).Format("full").Do()
 	if err != nil {
 		// If the ID wasn't found as a thread ID, try treating it as a message ID
@@ -91,13 +103,16 @@ func (c *Client) GetThread(id string) ([]*Message, error) {
 
 	var messages []*Message
 	for _, msg := range thread.Messages {
-		messages = append(messages, parseMessage(msg, true))
+		messages = append(messages, parseMessage(msg, true, c.GetLabelName))
 	}
 
 	return messages, nil
 }
 
-func parseMessage(msg *gmail.Message, includeBody bool) *Message {
+// LabelResolver is a function that resolves a label ID to its display name
+type LabelResolver func(labelID string) string
+
+func parseMessage(msg *gmail.Message, includeBody bool, resolver LabelResolver) *Message {
 	m := &Message{
 		ID:       msg.Id,
 		ThreadId: msg.ThreadId,
@@ -123,7 +138,48 @@ func parseMessage(msg *gmail.Message, includeBody bool) *Message {
 		m.Attachments = extractAttachments(msg.Payload, "")
 	}
 
+	// Extract labels and categories
+	m.Labels, m.Categories = extractLabelsAndCategories(msg.LabelIds, resolver)
+
 	return m
+}
+
+// extractLabelsAndCategories separates label IDs into user labels and Gmail categories
+func extractLabelsAndCategories(labelIds []string, resolver LabelResolver) ([]string, []string) {
+	var labels, categories []string
+
+	// System labels to exclude from display
+	systemLabels := map[string]bool{
+		"INBOX": true, "SENT": true, "DRAFT": true, "SPAM": true,
+		"TRASH": true, "UNREAD": true, "STARRED": true, "IMPORTANT": true,
+		"CHAT": true, "CATEGORY_PERSONAL": true,
+	}
+
+	for _, labelID := range labelIds {
+		// Check if it's a category
+		if strings.HasPrefix(labelID, "CATEGORY_") {
+			// Convert CATEGORY_UPDATES -> updates
+			category := strings.ToLower(strings.TrimPrefix(labelID, "CATEGORY_"))
+			if category != "personal" { // Skip CATEGORY_PERSONAL (default)
+				categories = append(categories, category)
+			}
+			continue
+		}
+
+		// Skip system labels
+		if systemLabels[labelID] {
+			continue
+		}
+
+		// Resolve user labels to their display names
+		if resolver != nil {
+			labels = append(labels, resolver(labelID))
+		} else {
+			labels = append(labels, labelID)
+		}
+	}
+
+	return labels, categories
 }
 
 // extractAttachments recursively traverses message parts to find attachments
