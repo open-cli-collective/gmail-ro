@@ -41,6 +41,8 @@ gmail-ro/
 ├── main.go                     # Entry point
 ├── cmd/
 │   ├── root.go                 # Root command, version command
+│   ├── init.go                 # Guided OAuth setup command
+│   ├── config.go               # Config show/test/clear subcommands
 │   ├── search.go               # Search messages command
 │   ├── read.go                 # Read single message command
 │   ├── thread.go               # Read conversation thread command
@@ -72,6 +74,33 @@ gmail-ro/
 ├── Makefile                    # Build, test, lint targets
 └── go.mod                      # Module: github.com/open-cli-collective/gmail-ro
 ```
+
+## Setup Commands
+
+The CLI provides commands for guided setup and configuration management:
+
+```bash
+# Guided OAuth setup with clear instructions
+gmail-ro init
+
+# Setup without connectivity verification
+gmail-ro init --no-verify
+
+# Check configuration status (credentials, token, email)
+gmail-ro config show
+
+# Test Gmail API connectivity
+gmail-ro config test
+
+# Clear stored OAuth token (forces re-authentication)
+gmail-ro config clear
+```
+
+The `init` command improves the OAuth flow by:
+- Checking for `credentials.json` and providing setup instructions if missing
+- Accepting either the full localhost redirect URL or just the authorization code
+- Explaining that the localhost error page is expected behavior
+- Verifying connectivity after authentication
 
 ## Key Patterns
 
@@ -271,24 +300,27 @@ mv ~/Downloads/client_secret_*.json ~/.config/gmail-ro/credentials.json
 
 ### "Token has been expired or revoked"
 
-Delete token and re-authenticate:
+Clear the token and re-authenticate:
+```bash
+gmail-ro config clear
+gmail-ro init
+```
+
+Alternatively, delete the token manually:
 
 **macOS (token in Keychain):**
 ```bash
 security delete-generic-password -s gmail-ro -a oauth_token
-gmail-ro search "test"  # Will prompt for re-auth
 ```
 
 **Linux (token in secret-tool):**
 ```bash
 secret-tool clear service gmail-ro account oauth_token
-gmail-ro search "test"  # Will prompt for re-auth
 ```
 
 **File-based storage:**
 ```bash
 rm ~/.config/gmail-ro/token.json
-gmail-ro search "test"  # Will prompt for re-auth
 ```
 
 ### "Access blocked: This app's request is invalid"
