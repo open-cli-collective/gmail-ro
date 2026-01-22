@@ -191,3 +191,40 @@ func (c *Client) GetLabels() []*gmail.Label {
 	}
 	return labels
 }
+
+// GetConfigDir returns the configuration directory path
+func GetConfigDir() (string, error) {
+	return getConfigDir()
+}
+
+// GetCredentialsPath returns the path to credentials.json
+func GetCredentialsPath() (string, error) {
+	dir, err := getConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, credentialsFile), nil
+}
+
+// GetOAuthConfig loads OAuth config from credentials file
+func GetOAuthConfig() (*oauth2.Config, error) {
+	credPath, err := GetCredentialsPath()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(credPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read credentials file: %w", err)
+	}
+	return google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+}
+
+// ExchangeAuthCode exchanges an authorization code for a token
+func ExchangeAuthCode(ctx context.Context, config *oauth2.Config, code string) (*oauth2.Token, error) {
+	return config.Exchange(ctx, code)
+}
+
+// GetAuthURL returns the OAuth authorization URL
+func GetAuthURL(config *oauth2.Config) string {
+	return config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+}
