@@ -22,25 +22,29 @@ jobs:
         run: |
           $testDir = "winget-validate-test"
           $testVersion = "0.0.1"
-          $testHash = "0000000000000000000000000000000000000000000000000000000000000001"
+          $testHashX64 = "0000000000000000000000000000000000000000000000000000000000000001"
+          $testHashArm64 = "0000000000000000000000000000000000000000000000000000000000000002"
 
           New-Item -ItemType Directory -Path $testDir -Force | Out-Null
 
           # Process version manifest
-          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-ro.yaml" -Raw
+          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-readonly.yaml" -Raw
           $content = $content -replace "0\.0\.0", $testVersion
-          Set-Content "$testDir/OpenCLICollective.gmail-ro.yaml" $content -Encoding UTF8
+          Set-Content "$testDir/OpenCLICollective.gmail-readonly.yaml" $content -Encoding UTF8
 
           # Process locale manifest
-          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-ro.locale.en-US.yaml" -Raw
+          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-readonly.locale.en-US.yaml" -Raw
           $content = $content -replace "0\.0\.0", $testVersion
-          Set-Content "$testDir/OpenCLICollective.gmail-ro.locale.en-US.yaml" $content -Encoding UTF8
+          Set-Content "$testDir/OpenCLICollective.gmail-readonly.locale.en-US.yaml" $content -Encoding UTF8
 
-          # Process installer manifest (version + checksum)
-          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-ro.installer.yaml" -Raw
+          # Process installer manifest (version + checksums)
+          $content = Get-Content "packaging/winget/OpenCLICollective.gmail-readonly.installer.yaml" -Raw
           $content = $content -replace "0\.0\.0", $testVersion
-          $content = $content -replace "0{64}", $testHash
-          Set-Content "$testDir/OpenCLICollective.gmail-ro.installer.yaml" $content -Encoding UTF8
+          # Replace first checksum (x64)
+          $content = $content -replace "0{64}", $testHashX64, 1
+          # Replace second checksum (arm64)
+          $content = $content -replace "0{64}", $testHashArm64
+          Set-Content "$testDir/OpenCLICollective.gmail-readonly.installer.yaml" $content -Encoding UTF8
 
           Write-Host "Generated test manifests:"
           Get-ChildItem $testDir | ForEach-Object { Write-Host "  $_" }
